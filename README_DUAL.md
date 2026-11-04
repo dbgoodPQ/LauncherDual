@@ -6,9 +6,8 @@ mirrors the built-in screen onto a second SPI panel. Target panel: Waveshare 2in
 
 Env: `m5stack-cardputer-dual`. Everything else is stock Launcher.
 
-> **Status: not yet tested on hardware.** The mirror class was syntax-checked against the real
-> Arduino_GFX bus headers, but no full firmware build or flash was possible where it was written.
-> The GitHub Action in this repo does the first real build.
+> **Status: tested on the M5Stack Cardputer ADV.** Builds come from the **Build Cardputer dual**
+> GitHub Action in this repo.
 
 ## How it works
 
