@@ -1,0 +1,15 @@
+[submodule "ArduinoJson"]
+	path = lib/ArduinoJson
+	url = https://github.com/bblanchon/ArduinoJson.git
+[submodule "Arduino_GFX"]
+	path = lib/Arduino_GFX
+	url = https://github.com/moononournation/Arduino_GFX.git
+[submodule "SensorLib"]
+	path = lib/SensorLib
+	url = https://github.com/lewisxhe/SensorLib.git
+[submodule "XPowersLib"]
+	path = lib/XPowersLib
+	url = https://github.com/lewisxhe/XPowersLib.git
+[submodule "platformio-espressif32-sunton"]
+	path = boards/CYD-2432S028/source/platformio-espressif32-sunton
+	url = https://github.com/rzeldent/platformio-espressif32-sunton

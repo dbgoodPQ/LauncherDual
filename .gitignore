@@ -1,0 +1,11 @@
+.pio
+.vscode
+*.bin
+include/webFiles.h
+checksum.sha256
+build
+node_modules
+__pycache__
+docs
+managed_components
+sdkconfig.*
