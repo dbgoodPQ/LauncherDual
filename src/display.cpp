@@ -10,6 +10,7 @@
 #include "sd_functions.h"
 #include "settings.h"
 #include "utils.h"
+#include <ExtDisplay.h>
 #include <cstring>
 #include <globals.h>
 #include <vector>
@@ -575,6 +576,9 @@ void displayMsg(String txt, bool waitKeyPress) { displayError(txt, waitKeyPress)
 ***************************************************************************************/
 void progressHandler(size_t progress, size_t total) {
     vTaskDelay(pdMS_TO_TICKS(2));
+#if defined(EXT_MIRROR)
+    extLastProgress = launcherMillis(); // a G0 screen switch waits until writing stops
+#endif
 #if defined(E_PAPER_DISPLAY)
     static unsigned long lastUpdate = 0;
 #endif

@@ -13,6 +13,7 @@
 #include "sd_functions.h"
 #include "utils.h"
 #include "wifi_crypto.h"
+#include <ExtDisplay.h>
 #include <FS.h>
 #include <SD.h>
 #include <cstdio>
@@ -685,6 +686,10 @@ void settings_menu() {
 #if defined(HAS_KEYBOARD)
         options.push_back({"Manage shortcuts", [=]() { manageKeyBindings(); }});
 #endif
+#if defined(EXT_MIRROR)
+        // Saves the other screen and reboots; holding G0 for 3 s does the same.
+        options.push_back({extPrimary ? "[External] Screen" : "[Internal] Screen", extDisplayToggle});
+#endif
 
         if (dev_mode) options.push_back({"Boot Animation", [=]() { initDisplayLoop(); }});
         if (dev_mode)
@@ -727,7 +732,11 @@ void _setBrightness(uint8_t brightval) {
         float linear = (float)brightval / 100.0;
         value = PWM_MIN + round(pow(linear, 2.2) * (PWM_MAX - PWM_MIN));
     }
+#if defined(EXT_MIRROR)
+    analogWrite(TFT_BL, extPrimary ? 0 : value); // built-in screen stays dark in external mode
+#else
     analogWrite(TFT_BL, value);
+#endif
 #ifdef EXT_TFT_BL
     analogWrite(EXT_TFT_BL, value); // second screen's backlight follows the built-in one
 #endif

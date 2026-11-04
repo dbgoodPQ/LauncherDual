@@ -85,9 +85,19 @@ void tft_display::buildDisplay() {
     );
 #else
     #if TFT_DATABUS_N == 0
-    bus = new TFT_DATABUS(cfg.dc, cfg.cs, cfg.sclk, cfg.mosi, cfg.miso, &SPI);
         #if defined(EXT_MIRROR)
-    bus = new ExtMirrorBus(static_cast<Arduino_HWSPI *>(bus));
+    if (extPrimary) {
+        // External panel only (see ExtDisplay.h): displayConfig already points at it, and it
+        // sits on the SD card's SPI. Bring that bus up exactly as sd_functions.cpp does, so
+        // the card's own begin() later finds it running and leaves it alone.
+        sdcardSPI.begin(SDCARD_SCK, SDCARD_MISO, SDCARD_MOSI, SDCARD_CS);
+        // SD pins, not cfg's: see extDisplaySetup() for why displayConfig keeps the built-in ones.
+        bus = new TFT_DATABUS(cfg.dc, cfg.cs, SDCARD_SCK, SDCARD_MOSI, SDCARD_MISO, &sdcardSPI);
+    } else {
+        bus = new ExtMirrorBus(new TFT_DATABUS(cfg.dc, cfg.cs, cfg.sclk, cfg.mosi, cfg.miso, &SPI));
+    }
+        #else
+    bus = new TFT_DATABUS(cfg.dc, cfg.cs, cfg.sclk, cfg.mosi, cfg.miso, &SPI);
         #endif
     #elif TFT_DATABUS_N == 1
     bus = new TFT_DATABUS(cfg.cs, cfg.sclk, cfg.d[0], cfg.d[1], cfg.d[2], cfg.d[3]);
@@ -147,6 +157,11 @@ void tft_display::begin(uint32_t speed) {
     (void)speed;
     buildDisplay();
     if (_gfx) {
+#if defined(EXT_MIRROR) && defined(EXT_SPI_SPEED)
+        // ExtMirrorBus applies EXT_SPI_SPEED itself; the external-only bus needs it here.
+        if (extPrimary) _gfx->begin(EXT_SPI_SPEED);
+        else
+#endif
         _gfx->begin();
         _width = _gfx->width();
         _height = _gfx->height();
