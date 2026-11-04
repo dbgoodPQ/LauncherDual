@@ -1,13 +1,14 @@
-# Launcher — Cardputer ADV with a mirrored external screen
+# Launcher — Cardputer ADV with an external screen
 
-A build of [bmorcelli/Launcher](https://github.com/bmorcelli/Launcher) for the M5Stack Cardputer ADV that
-mirrors the built-in screen onto a second SPI panel. Target panel: Waveshare 2inch LCD module
-(ST7789V, 240x320).
+A build of [bmorcelli/Launcher](https://github.com/bmorcelli/Launcher) for the M5Stack Cardputer ADV that can
+use a second SPI panel, the Waveshare 2inch LCD module (ST7789V, 240x320), as its main screen. It is not a
+dual-screen port: one screen is the main screen at a time, and you switch between internal and external.
+In internal mode the external panel shows a scaled mirror of the built-in screen.
 
 Env: `m5stack-cardputer-dual`. Everything else is stock Launcher.
 
-> **Status: tested on the M5Stack Cardputer ADV.** Builds come from the **Build Cardputer dual**
-> GitHub Action in this repo.
+> **Status:** internal mode tested on the M5Stack Cardputer ADV; external mode not yet tested on hardware.
+> Builds come from the **Build Cardputer dual** GitHub Action in this repo.
 
 ## Two screen modes
 
