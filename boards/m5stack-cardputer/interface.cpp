@@ -475,9 +475,9 @@ void extDisplaySetup() {
     displayConfig.cs = EXT_TFT_CS;
     displayConfig.dc = EXT_TFT_DC;
     displayConfig.rst = EXT_TFT_RST;
-    displayConfig.sclk = SDCARD_SCK;
-    displayConfig.mosi = SDCARD_MOSI;
-    displayConfig.miso = SDCARD_MISO;
+    // sclk/mosi/miso stay on the built-in panel's pins on purpose: setupSdCard() treats
+    // "SD MOSI == displayConfig.mosi" as an SD card on the display's SPI object and would
+    // mount it on SPI instead of sdcardSPI, which hangs. ardgfx.cpp uses the SD pins itself.
 }
 
 void extDisplayToggle() {

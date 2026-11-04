@@ -91,7 +91,8 @@ void tft_display::buildDisplay() {
         // sits on the SD card's SPI. Bring that bus up exactly as sd_functions.cpp does, so
         // the card's own begin() later finds it running and leaves it alone.
         sdcardSPI.begin(SDCARD_SCK, SDCARD_MISO, SDCARD_MOSI, SDCARD_CS);
-        bus = new TFT_DATABUS(cfg.dc, cfg.cs, cfg.sclk, cfg.mosi, cfg.miso, &sdcardSPI);
+        // SD pins, not cfg's: see extDisplaySetup() for why displayConfig keeps the built-in ones.
+        bus = new TFT_DATABUS(cfg.dc, cfg.cs, SDCARD_SCK, SDCARD_MOSI, SDCARD_MISO, &sdcardSPI);
     } else {
         bus = new ExtMirrorBus(new TFT_DATABUS(cfg.dc, cfg.cs, cfg.sclk, cfg.mosi, cfg.miso, &SPI));
     }
