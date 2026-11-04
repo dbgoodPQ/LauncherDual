@@ -12,16 +12,22 @@ Env: `m5stack-cardputer-dual`. Everything else is stock Launcher.
 
 ## How it works
 
-The panel driver talks to one data bus. `include/ExtMirrorBus.h` replaces it with a bus that sends every
-byte to the built-in panel and to the external one. `lib/DisplayDrivers/src/backends/ardgfx.cpp` wraps the
-bus when `EXT_MIRROR` is defined (4 lines; the library is vendored in this repo for that reason).
+The panel driver talks to one data bus. `include/ExtMirrorBus.h` replaces it with a bus that sends everything
+to the built-in panel unchanged and re-sends the picture to the external panel, scaled up to fill it.
+`lib/DisplayDrivers/src/backends/ardgfx.cpp` wraps the bus when `EXT_MIRROR` is defined (4 lines; the library
+is vendored in this repo for that reason).
 
-No scaling is done. The built-in panel is addressed with offsets (x 40, y 53 in landscape) that happen to
-centre a 240x135 picture on a 320x240 panel, so the same address-window commands go to both screens. The
-mirror appears 1:1, centred, with black borders.
+Scaling is nearest-neighbour, done row by row as the launcher draws, with no frame buffer (about 1 KB of RAM).
+By default the 240x135 picture is stretched to the full 320x240 panel. That is a wider stretch vertically
+(1.78x) than horizontally (1.33x), so circles come out slightly tall. For undistorted proportions use
+`-DEXT_MIRROR_H=180` (see the env): the picture fills the width and leaves 30 px bars top and bottom.
+`-DEXT_MIRROR_W=240 -DEXT_MIRROR_H=135` gives the old unscaled, centred mirror.
+
+The mirror works in landscape (the launcher's rotation 1 and 3). In a portrait rotation the external screen
+stops updating.
 
 The external panel shares SCK and MOSI with the SD card (the card's own `sdcardSPI` object, so transactions
-are serialised). Only CS, DC and RST are its own.
+are serialised). Only CS, DC, RST and the backlight are its own.
 
 ## Wiring (Cardputer ADV header to Waveshare 2inch module)
 
@@ -34,7 +40,7 @@ are serialised). Only CS, DC and RST are its own.
 | RST | G3 | |
 | VCC | 3V3 | set the module's voltage selector to 3.3V so supply and logic match |
 | GND | GND | |
-| BL | 3V3 | backlight always on |
+| BL | G4 | backlight: follows the brightness setting and turns off with the device. Wired to 3V3 instead, it works but stays lit when the device is turned off |
 
 The GPIOs match the three other Cardputer ADV external-display projects I found
 (`zeromem0/cardputer_adv`, `moes-bobandy/botcorps-adv`, `purplxhazee/Purplx-`). I did not check them against
@@ -67,7 +73,9 @@ esptool.py --chip esp32s3 write_flash 0x0 Launcher-m5stack-cardputer-dual.bin
 | Symptom | Try |
 | --- | --- |
 | External screen stays white or black | Check CS/DC/RST wiring and that the module is at 3.3V. Backlight pin must be powered. |
+| External screen stays lit after OFF / brightness 0 | Move the BL wire from 3V3 to G4 (`-DEXT_TFT_BL=4`). A backlight wired to 3V3 cannot be switched off by software. |
 | Image mirrored or upside down | Uncomment `-DEXT_MADCTL_XOR=0x40` (left/right) or `0x80` (up/down) in the env. This flips the external screen only. |
+| Picture looks stretched tall | Intended with the default 320x240. Use `-DEXT_MIRROR_H=180` for the built-in screen's proportions. |
 | Colours inverted | The driver sends INVON, as the built-in IPS panel needs. If your module disagrees, tell me and I will add a flag. |
 | Garbled picture or noise | Both screens share one SPI speed (default 40 MHz). Uncomment `-DEXT_SPI_SPEED=20000000` in the env. |
 | SD card not found | The external screen must not be wired to G39 (SD MISO) or G12 (SD CS). |

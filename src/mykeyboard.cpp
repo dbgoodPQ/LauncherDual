@@ -5,6 +5,9 @@
 #include "settings.h"
 #include <globals.h>
 #include <soc/soc_caps.h>
+#ifdef EXT_TFT_BL
+#include <driver/gpio.h>
+#endif
 #if SOC_USB_SERIAL_JTAG_SUPPORTED
 #include <driver/usb_serial_jtag.h>
 #endif
@@ -1028,6 +1031,12 @@ String keyboard(String current_text, int max_size, const String &textbox_title) 
 
 /* Turns off device */
 void __attribute__((weak)) powerOff() {
+#ifdef EXT_TFT_BL
+    // Keep the second screen's backlight off through deep sleep (the pin would float otherwise).
+    analogWrite(EXT_TFT_BL, 0);
+    gpio_hold_en((gpio_num_t)EXT_TFT_BL);
+    gpio_deep_sleep_hold_en();
+#endif
 #if defined(SOC_PM_SUPPORT_EXT0_WAKEUP)
     esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, LOW);
     vTaskDelay(pdMS_TO_TICKS(200));

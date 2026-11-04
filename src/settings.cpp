@@ -720,15 +720,17 @@ void settings_menu() {
 // This function comes from interface.h
 void _setBrightness(uint8_t brightval) {
 #ifdef TFT_BL
-    if (brightval == 0) {
-        analogWrite(TFT_BL, brightval);
-    } else {
+    uint8_t value = 0;
+    if (brightval != 0) {
         const uint8_t PWM_MIN = 85;
         const uint8_t PWM_MAX = 255;
         float linear = (float)brightval / 100.0;
-        uint8_t value = PWM_MIN + round(pow(linear, 2.2) * (PWM_MAX - PWM_MIN));
-        analogWrite(TFT_BL, value);
+        value = PWM_MIN + round(pow(linear, 2.2) * (PWM_MAX - PWM_MIN));
     }
+    analogWrite(TFT_BL, value);
+#ifdef EXT_TFT_BL
+    analogWrite(EXT_TFT_BL, value); // second screen's backlight follows the built-in one
+#endif
 #endif
 }
 
