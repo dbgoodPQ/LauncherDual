@@ -9,7 +9,36 @@ Env: `m5stack-cardputer-dual`. Everything else is stock Launcher.
 > **Status: tested on the M5Stack Cardputer ADV.** Builds come from the **Build Cardputer dual**
 > GitHub Action in this repo.
 
-## How it works
+## Two screen modes
+
+| Mode | What you get |
+| --- | --- |
+| **Internal** (default) | The built-in screen, mirrored onto the external panel scaled up (soft, see below). |
+| **External** | The external panel is the only display. The launcher lays itself out natively at 320x240: nothing is scaled, so text and icons are sharp. The built-in screen stays dark. |
+
+To switch, either:
+
+- **hold G0 for 3 s**: a stripe says "Release: external screen" (or internal); release G0 and the device
+  reboots on the other screen, or
+- **Config > `[Internal] Screen`** / **`[External] Screen`**, which switches and reboots.
+
+The choice is saved in NVS and kept across reboots and power-off. If you switch to external with no panel
+plugged in, hold G0 for 3 s again to come back (the stripe will not be visible on the dark built-in screen,
+just wait 3 s and release). "Reset Configs/Wifi" also brings back the internal screen.
+
+Notes:
+
+- In both modes **a short press of G0 is Select on release** (it used to be on press), so that a hold can mean
+  "switch". The Enter key is unchanged and still does the long-press menus in the file browser.
+- The switch is not offered while the launcher is writing (installing, backing up): G0 holds are ignored
+  until 3 s after the progress bar stops.
+- The switch happens on release on purpose: a reset with G0 still held would start the ESP32 download mode.
+- In external mode portrait rotations work too (Config > Rotation). `EXT_MADCTL_XOR` and `EXT_MIRROR_W/H`
+  only affect the mirror (internal mode); `EXT_SPI_SPEED` applies to both.
+- Implementation: `include/ExtDisplay.h`, the end of `boards/m5stack-cardputer/interface.cpp`
+  (retargets `displayConfig` before `tft->begin()`) and the bus choice in `ardgfx.cpp`.
+
+## How the mirror works (internal mode)
 
 The panel driver talks to one data bus. `include/ExtMirrorBus.h` replaces it with a bus that sends everything
 to the built-in panel unchanged and re-sends the picture to the external panel, scaled up to fill it.

@@ -12,6 +12,9 @@ mirror, everything else is stock Launcher — for features, usage and other supp
 ## What it adds
 
 - Everything drawn on the built-in screen is re-sent to the external panel, scaled to fill it.
+- Or, in **external mode**, the external panel becomes the only display, rendered natively at 320x240
+  (sharp text and icons). Hold G0 for 3 s, or use Config > Screen, to switch; the choice is remembered.
+  Details in [README_DUAL.md](README_DUAL.md#two-screen-modes).
 - Scaling is nearest-neighbour, row by row, with no frame buffer (about 1 KB of RAM).
 - The external backlight follows the brightness setting and turns off with the device.
 - The external panel shares SCK/MOSI with the SD card; only CS, DC, RST and BL are its own.
