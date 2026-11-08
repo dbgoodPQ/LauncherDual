@@ -616,6 +616,9 @@ void settings_menu() {
             {"Orientation",
                                    [=]() {
                  gsetRotation(true);
+#ifdef EXT_MIRROR
+                 extScreen(true); // layout size of the panel Settings is on
+#endif
                  saveConfigs();
              }                                                                          },
 #endif
@@ -631,7 +634,7 @@ void settings_menu() {
 #ifdef EXT_MIRROR
             {dualScreen ? "[x] Dual screen" : "[ ] Dual screen", [=]() {
                  dualScreen = !dualScreen;
-                 extScreen(2); // settings move to the screen that now shows open items
+                 extScreen(true); // Settings move to the screen that now shows open items
                  _setBrightness(bright);
                  tft->fillScreen(BGCOLOR);
                  saveConfigs();

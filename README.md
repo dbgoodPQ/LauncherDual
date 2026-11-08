@@ -13,17 +13,17 @@ second screen, everything else is stock Launcher — for features, usage and oth
 
 - **Screen modes** (Settings → `Dual screen`, applied immediately, saved with the other settings):
   - **Dual** (default): the main menu stays on the built-in screen; the item you open (SD, OTA, WebUI,
-    Partition Manager, Settings, apps) is shown on the external screen. When it closes (Esc as usual),
+    Partition Manager, Settings, apps) is shown on the external screen, drawn natively at 320x240
+    (sharp, nothing scaled). When it closes (Esc as usual),
     control goes back to the menu and the external screen shows the static Launcher splash.
     The boot screen is shown on both.
   - **Single**: built-in screen only; the external panel gets no picture and its backlight is off.
-- The external picture is scaled to fill the panel.
-- Scaling is nearest-neighbour, row by row, with no frame buffer (about 1 KB of RAM).
+- No frame buffer: the external panel just gets its own display driver.
 - The external backlight follows the brightness setting and turns off with the device.
 - The external panel shares SCK/MOSI with the SD card; only CS, DC, RST and BL are its own.
 
-Implementation: `include/ExtMirrorBus.h` wraps the display bus when `EXT_MIRROR` is defined
-(hooked in `lib/DisplayDrivers/src/backends/ardgfx.cpp`).
+Implementation: a second ST7789 driver in `lib/DisplayDrivers/src/backends/ardgfx.cpp` (`EXT_MIRROR`
+builds only), switched by `extScreen()` in `src/display.cpp`.
 
 ## Wiring (Cardputer ADV → Waveshare 2inch)
 
@@ -63,13 +63,9 @@ esptool.py --chip esp32s3 write_flash 0x0 Launcher-m5stack-cardputer-dual.bin
 
 | Flag | Effect |
 | --- | --- |
-| `-DEXT_MIRROR_H=180` | Keep the built-in screen's proportions (30 px bars top and bottom) instead of stretching to 320x240 |
-| `-DEXT_MIRROR_W=240 -DEXT_MIRROR_H=135` | Unscaled, centred mirror |
-| `-DEXT_MADCTL_XOR=0x40` / `0x80` | Flip the external screen left/right / up/down |
-| `-DEXT_SPI_SPEED=20000000` | Lower SPI speed if the picture is garbled |
+| `-DEXT_SPI_SPEED=20000000` | Lower the external screen's SPI speed if its picture is garbled |
 
-The external screen works in landscape rotations only. More details and troubleshooting are in
-[README_DUAL.md](README_DUAL.md).
+More details and troubleshooting are in [README_DUAL.md](README_DUAL.md).
 
 ## Credits
 

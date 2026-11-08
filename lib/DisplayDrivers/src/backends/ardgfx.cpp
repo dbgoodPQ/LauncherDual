@@ -7,7 +7,11 @@
 #if defined(USE_ARDUINO_GFX)
 #include <font/glcdfont.h>
 #if defined(EXT_MIRROR)
-#include "ExtMirrorBus.h"
+#include <SPI.h>
+#ifdef EXT_TFT_BL
+#include <driver/gpio.h>
+#endif
+extern SPIClass sdcardSPI; // src/sd_functions.cpp
 #endif
 
 #include "freertos/FreeRTOS.h"
@@ -86,9 +90,6 @@ void tft_display::buildDisplay() {
 #else
     #if TFT_DATABUS_N == 0
     bus = new TFT_DATABUS(cfg.dc, cfg.cs, cfg.sclk, cfg.mosi, cfg.miso, &SPI);
-        #if defined(EXT_MIRROR)
-    bus = new ExtMirrorBus(static_cast<Arduino_HWSPI *>(bus));
-        #endif
     #elif TFT_DATABUS_N == 1
     bus = new TFT_DATABUS(cfg.cs, cfg.sclk, cfg.d[0], cfg.d[1], cfg.d[2], cfg.d[3]);
     #elif TFT_DATABUS_N == 2 || TFT_DATABUS_N == 5
@@ -151,7 +152,41 @@ void tft_display::begin(uint32_t speed) {
         _width = _gfx->width();
         _height = _gfx->height();
     }
+#if defined(EXT_MIRROR)
+    // Second ST7789 (240x320) on the SD card's SPI, drawn natively when selected by useExt().
+    // Bring that bus up exactly as sd_functions.cpp does, so the card's begin() leaves it alone.
+    sdcardSPI.begin(SDCARD_SCK, SDCARD_MISO, SDCARD_MOSI, SDCARD_CS);
+#ifdef EXT_TFT_BL
+    gpio_hold_dis((gpio_num_t)EXT_TFT_BL); // powerOff() held the backlight low through deep sleep
+    gpio_deep_sleep_hold_dis();
+#endif
+    _ext = new Arduino_ST7789(
+        new Arduino_HWSPI(EXT_TFT_DC, EXT_TFT_CS, SDCARD_SCK, SDCARD_MOSI, SDCARD_MISO, &sdcardSPI),
+        EXT_TFT_RST, displayConfig.rotation, true
+    );
+#ifdef EXT_SPI_SPEED
+    _ext->begin(EXT_SPI_SPEED);
+#else
+    _ext->begin();
+#endif
+#endif
 }
+
+#if defined(EXT_MIRROR)
+void tft_display::useExt(bool on) {
+    if (on == _onExt || !_ext || !_gfx) return;
+    xSemaphoreTakeRecursive(tftMutex, portMAX_DELAY);
+    Arduino_GFX *g = _gfx;
+    _gfx = _ext;
+    _ext = g;
+    _onExt = on;
+    // Each driver keeps its own state: hand over what the launcher set on the other one.
+    _gfx->setRotation(_rotation);
+    _gfx->setTextSize(_textSize);
+    _gfx->setTextColor(_textColor, _textBgColor);
+    xSemaphoreGiveRecursive(tftMutex);
+}
+#endif
 
 void tft_display::init(uint8_t tc) {
     (void)tc;

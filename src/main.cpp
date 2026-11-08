@@ -274,9 +274,6 @@ void setup() {
     // Get Configuration from NVS partition
     getFromNVS();
     RAM_LOG("after-getFromNVS");
-#ifdef EXT_MIRROR
-    extScreen(0);
-#endif
 
     // declare variables
     size_t currentIndex = 0;
@@ -314,6 +311,9 @@ void setup() {
     }
     tft->fillScreen(BGCOLOR);
     initDisplay(true);
+#ifdef EXT_MIRROR
+    extScreen(false); // splash on the external panel
+#endif
     RAM_LOG("after-first-display");
 
     // Init post setup GPIO before SD Card initializes
@@ -549,8 +549,7 @@ void loop() {
     opt = menuItems.size(); // number of options in the menu
     update_sd = sdcardMounted;
 #ifdef EXT_MIRROR
-#define RUN_ITEM(it) (extScreen(2), (it).action(), extScreen(1))
-    extScreen(1);
+#define RUN_ITEM(it) (extScreen(true), (it).action(), extScreen(false))
 #else
 #define RUN_ITEM(it) (it).action()
 #endif

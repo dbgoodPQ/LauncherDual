@@ -16,7 +16,7 @@ in NVS and `config.conf` (key `dualScreen`).
 
 | Mode | Built-in screen | External screen |
 | --- | --- | --- |
-| Dual (`[x]`, default) | main menu, and the boot screen | the open menu item (scaled), boot screen, otherwise the static splash |
+| Dual (`[x]`, default) | main menu, and the boot screen | the open menu item, natively at 320x240; otherwise the static splash |
 | Single (`[ ]`) | everything | no picture, backlight off |
 
 In Dual mode a menu item runs on the external screen until it returns (Esc as usual); popups and
@@ -24,25 +24,14 @@ keyboard prompts it raises go there too. The menu itself does not take input mea
 
 ## How it works
 
-The panel driver talks to one data bus. `include/ExtMirrorBus.h` replaces it with a bus that sends everything
-to the built-in panel unchanged and re-sends the picture to the external panel, scaled up to fill it.
-`lib/DisplayDrivers/src/backends/ardgfx.cpp` wraps the bus when `EXT_MIRROR` is defined (4 lines; the library
-is vendored in this repo for that reason).
+The external panel has its own Arduino_GFX ST7789 driver (240x320, no offsets), built next to the built-in
+one in `lib/DisplayDrivers/src/backends/ardgfx.cpp` when `EXT_MIRROR` is defined (the library is vendored in
+this repo for that reason). `tft->useExt()` swaps which driver the launcher draws on, and `extScreen()` in
+`src/display.cpp` calls it around each main-menu action and updates `tftWidth`/`tftHeight`. Every screen
+then lays itself out for the panel it is on, so the external screen is drawn at its real resolution, with
+no scaling and no frame buffer (no extra RAM beyond the driver objects).
 
-A one-byte route (`extRoute`, `include/ExtRoute.h`) picks which panel(s) receive pixels: built-in,
-external or both. It is read at each pixel window, so no extra drawing code or layout is needed for
-the external screen: whatever the launcher draws goes to the panel(s) currently routed. Commands and
-window coordinates always reach both panels, so each stays initialised and rotated. `extScreen()` in
-`src/display.cpp` sets the route around each main-menu action.
-
-Scaling is nearest-neighbour, done row by row as the launcher draws, with no frame buffer (about 1 KB of RAM).
-By default the 240x135 picture is stretched to the full 320x240 panel. That is a wider stretch vertically
-(1.78x) than horizontally (1.33x), so circles come out slightly tall. For undistorted proportions use
-`-DEXT_MIRROR_H=180` (see the env): the picture fills the width and leaves 30 px bars top and bottom.
-`-DEXT_MIRROR_W=240 -DEXT_MIRROR_H=135` gives the old unscaled, centred mirror.
-
-The mirror works in landscape (the launcher's rotation 1 and 3). In a portrait rotation the external screen
-stops updating.
+The external screen uses the same rotation as the built-in one (Config > Orientation).
 
 The external panel shares SCK and MOSI with the SD card (the card's own `sdcardSPI` object, so transactions
 are serialised). Only CS, DC, RST and the backlight are its own.
@@ -92,9 +81,7 @@ esptool.py --chip esp32s3 write_flash 0x0 Launcher-m5stack-cardputer-dual.bin
 | --- | --- |
 | External screen stays white or black | Check CS/DC/RST wiring and that the module is at 3.3V. Backlight pin must be powered. |
 | External screen stays lit after OFF / brightness 0 | Move the BL wire from 3V3 to G4 (`-DEXT_TFT_BL=4`). A backlight wired to 3V3 cannot be switched off by software. |
-| Image mirrored or upside down | Uncomment `-DEXT_MADCTL_XOR=0x40` (left/right) or `0x80` (up/down) in the env. This flips the external screen only. |
-| Picture looks stretched tall | Intended with the default 320x240. Use `-DEXT_MIRROR_H=180` for the built-in screen's proportions. |
 | Colours inverted | The driver sends INVON, as the built-in IPS panel needs. If your module disagrees, tell me and I will add a flag. |
-| Garbled picture or noise | Both screens share one SPI speed (default 40 MHz). Uncomment `-DEXT_SPI_SPEED=20000000` in the env. |
+| Garbled picture or noise on the external screen | Uncomment `-DEXT_SPI_SPEED=20000000` in the env (default 40 MHz). |
 | SD card not found | The external screen must not be wired to G39 (SD MISO) or G12 (SD CS). |
 | Built-in screen works, external blank | The external panel may not accept the init sequence. Send me the model of the module. |

@@ -322,9 +322,17 @@ protected:
 #endif
     uint16_t _height = TFT_HEIGHT;
     uint16_t _width = TFT_WIDTH;
+#if defined(EXT_MIRROR)
+    Arduino_GFX *_ext = nullptr; // the panel not drawn on right now (see useExt)
+    bool _onExt = false;
+#endif
 
 public:
     explicit tft_display(int16_t _W = TFT_WIDTH, int16_t _H = TFT_HEIGHT);
+#if defined(EXT_MIRROR)
+    // m5stack-cardputer-dual: draw on the external 240x320 panel (true) or the built-in one.
+    void useExt(bool on);
+#endif
     friend class tft_sprite;
     friend class tft_logger;
 

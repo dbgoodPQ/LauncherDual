@@ -11,19 +11,21 @@
 #include "settings.h"
 #include "utils.h"
 #ifdef EXT_MIRROR
-#include "ExtRoute.h"
-uint8_t extRoute = EXT_INT | EXT_EXT;
-void extScreen(uint8_t stage) {
-    if (!dualScreen) {
-        extRoute = EXT_INT;
-        return;
-    }
-    if (stage == 1 && extRoute != EXT_INT) { // boot over or item closed: static splash on the external panel
-        extRoute = EXT_EXT;
+static void extUse(bool on) {
+    tft->useExt(on);
+    tftWidth = tft->width(); // the external panel lays out natively at 320x240
+    tftHeight = tft->height();
+}
+void extScreen(bool item) {
+    static bool splash = true; // the external panel needs the splash (boot, or an item just closed)
+    if (dualScreen && !item && splash) {
+        extUse(true);
         tft->fillScreen(BGCOLOR);
         initDisplay(true);
+        splash = false;
     }
-    extRoute = stage == 0 ? (EXT_INT | EXT_EXT) : stage == 1 ? EXT_INT : EXT_EXT;
+    extUse(dualScreen && item);
+    if (dualScreen && item) splash = true;
 }
 #endif
 #include <cstring>
