@@ -35,6 +35,21 @@ run. Closing the item (Esc) returns control to the menu.
 - **Shared SPI.** The external panel shares SCK and MOSI with the SD card on the card's own `sdcardSPI`
   object, so transactions are serialised. Only CS, DC, RST and the backlight are its own.
 
+## Text editor (implementation)
+
+`src/text_editor.cpp`, compiled only when `ARDUINO_M5STACK_CARDPUTER` is defined, and hooked into the SD
+file menu in `src/sd_functions.cpp`. Usage is in [README.md](README.md#text-editor).
+
+- The file is read into one heap buffer (no `String` per line), capped at 32 KB; the buffer grows in
+  1 KB steps while typing. Positions are byte offsets; `\n` and `\r\n` endings are kept as found.
+- Only the changed rows are redrawn; scrolling or a new/joined line redraws the visible page.
+- Saving writes `<file>.tmp`, removes the original and renames. `.json` and `config.conf` are first
+  parsed by ArduinoJson with an empty filter, which validates the syntax without storing anything.
+- Keyboard: the ADV (TCA8418) driver in `boards/m5stack-cardputer/interface.cpp` now attaches the held
+  Fn and Ctrl keys to each key event, as the original Cardputer keyboard library already did, and marks
+  the real Tab key in `hid_keys` (it shares its code with `+`). Holding an Fn-arrow repeats using the
+  driver's navigation pulses.
+
 ## Wiring (Cardputer ADV header to Waveshare 2inch module)
 
 | Waveshare pin | Cardputer ADV GPIO | Notes |

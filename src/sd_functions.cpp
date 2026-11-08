@@ -11,6 +11,7 @@
 #include "partition_table_model.h"
 #include "ram_profile.h"
 #include "settings.h"
+#include "text_editor.h"
 #include "utils.h"
 #include <algorithm>
 #include <esp_app_format.h>
@@ -449,6 +450,9 @@ RESTART:
                 opt.insert(opt.begin() + 1, {"Bind to key", [=]() { bindFileToKeyMenu(fileToUse); }});
             }
         }
+#endif
+#if defined(ARDUINO_M5STACK_CARDPUTER)
+        if (textEditorSupports(fileToUse)) opt.insert(opt.begin(), {"Edit file", [=]() { textEditor(fileToUse); }});
 #endif
         if (fileToCopy != "") opt.push_back({"Paste", [=]() { pasteFile(Folder); }});
         opt.push_back({"Delete", [=]() { deleteFromSd(fileToUse); }});
