@@ -16,6 +16,7 @@
 #include "settings.h"
 #include <ArduinoJson.h>
 #include <Keyboard_def.h>
+#include <SD.h>
 #include <algorithm>
 #include <globals.h>
 
