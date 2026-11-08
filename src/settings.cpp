@@ -198,6 +198,10 @@ int applySettingsFromRoot(JsonObject setting) {
         count++;
         log_i("applySettingsFromRoot: missing askSpiffs");
     }
+#ifdef EXT_MIRROR
+    if (setting["dualScreen"].is<bool>()) dualScreen = setting["dualScreen"].as<bool>();
+    else count++;
+#endif
 
     if (setting["bright"].is<int>()) bright = setting["bright"].as<int>();
     else {
@@ -316,6 +320,9 @@ void populateSettingsFromGlobals(JsonObject setting) {
     setting["noDotFiles"] = noDotFiles;
     setting["autoBackup"] = autoBackup;
     setting["askSpiffs"] = askSpiffs;
+#ifdef EXT_MIRROR
+    setting["dualScreen"] = dualScreen;
+#endif
     setting["bright"] = bright;
     setting["dimmerSet"] = dimmerSet;
     String rot_dev_name = get_efuse_mac_as_string() + "-" + device_name;
@@ -621,6 +628,15 @@ void settings_menu() {
                  setdimmerSet();
                  saveConfigs();
              }},
+#ifdef EXT_MIRROR
+            {dualScreen ? "[x] Dual screen" : "[ ] Dual screen", [=]() {
+                 dualScreen = !dualScreen;
+                 extScreen(2); // settings move to the screen that now shows open items
+                 _setBrightness(bright);
+                 tft->fillScreen(BGCOLOR);
+                 saveConfigs();
+             }},
+#endif
         };
         if (sdcardMounted) {
             options.push_back({onlyBins ? "[ ] See All Files" : "[x] See All Files", [=]() {
@@ -729,7 +745,7 @@ void _setBrightness(uint8_t brightval) {
     }
     analogWrite(TFT_BL, value);
 #ifdef EXT_TFT_BL
-    analogWrite(EXT_TFT_BL, value); // second screen's backlight follows the built-in one
+    analogWrite(EXT_TFT_BL, dualScreen ? value : 0); // second screen's backlight follows the built-in one
 #endif
 #endif
 }
@@ -1094,6 +1110,9 @@ bool saveIntoNVS() {
     ok &= lnvs::setBool(h, "noDotFiles", noDotFiles);
     ok &= lnvs::setBool(h, "autoBackup", autoBackup);
     ok &= lnvs::setBool(h, "askSpiffs", askSpiffs);
+#ifdef EXT_MIRROR
+    ok &= lnvs::setBool(h, "dualScreen", dualScreen);
+#endif
     ok &= lnvs::setInt(h, "rotation", rotation);
     ok &= nvs_set_u16(h, "FGCOLOR", FGCOLOR) == ESP_OK;
     ok &= nvs_set_u16(h, "BGCOLOR", BGCOLOR) == ESP_OK;
@@ -1228,6 +1247,9 @@ bool getFromNVS() {
     lnvs::getBool(h, "noDotFiles", noDotFiles);
     lnvs::getBool(h, "autoBackup", autoBackup);
     lnvs::getBool(h, "askSpiffs", askSpiffs);
+#ifdef EXT_MIRROR
+    lnvs::getBool(h, "dualScreen", dualScreen);
+#endif
     lnvs::getInt(h, "rotation", rotation);
     nvs_get_u16(h, "FGCOLOR", &FGCOLOR);
     nvs_get_u16(h, "BGCOLOR", &BGCOLOR);

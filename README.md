@@ -1,17 +1,23 @@
 # LauncherDual
 
 A fork of [bmorcelli/Launcher](https://github.com/bmorcelli/Launcher) that adds support for an
-external **Waveshare 2inch LCD module (ST7789V, 240x320)** which mirrors the device's built-in screen.
+external **Waveshare 2inch LCD module (ST7789V, 240x320)** as a second screen.
 
 The target device is the **M5Stack Cardputer ADV** (env `m5stack-cardputer-dual`). Apart from the
-mirror, everything else is stock Launcher — for features, usage and other supported devices, see the
+second screen, everything else is stock Launcher — for features, usage and other supported devices, see the
 [upstream project](https://github.com/bmorcelli/Launcher).
 
 > **Status: tested on the M5Stack Cardputer ADV.** Builds come from the **Build Cardputer dual** GitHub Action.
 
 ## What it adds
 
-- Everything drawn on the built-in screen is re-sent to the external panel, scaled to fill it.
+- **Screen modes** (Settings → `Dual screen`, applied immediately, saved with the other settings):
+  - **Dual** (default): the main menu stays on the built-in screen; the item you open (SD, OTA, WebUI,
+    Partition Manager, Settings, apps) is shown on the external screen. When it closes (Esc as usual),
+    control goes back to the menu and the external screen shows the static Launcher splash.
+    The boot screen is shown on both.
+  - **Single**: built-in screen only; the external panel gets no picture and its backlight is off.
+- The external picture is scaled to fill the panel.
 - Scaling is nearest-neighbour, row by row, with no frame buffer (about 1 KB of RAM).
 - The external backlight follows the brightness setting and turns off with the device.
 - The external panel shares SCK/MOSI with the SD card; only CS, DC, RST and BL are its own.
@@ -62,7 +68,7 @@ esptool.py --chip esp32s3 write_flash 0x0 Launcher-m5stack-cardputer-dual.bin
 | `-DEXT_MADCTL_XOR=0x40` / `0x80` | Flip the external screen left/right / up/down |
 | `-DEXT_SPI_SPEED=20000000` | Lower SPI speed if the picture is garbled |
 
-The mirror works in landscape rotations only. More details and troubleshooting are in
+The external screen works in landscape rotations only. More details and troubleshooting are in
 [README_DUAL.md](README_DUAL.md).
 
 ## Credits

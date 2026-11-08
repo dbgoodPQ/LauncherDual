@@ -10,6 +10,22 @@
 #include "sd_functions.h"
 #include "settings.h"
 #include "utils.h"
+#ifdef EXT_MIRROR
+#include "ExtRoute.h"
+uint8_t extRoute = EXT_INT | EXT_EXT;
+void extScreen(uint8_t stage) {
+    if (!dualScreen) {
+        extRoute = EXT_INT;
+        return;
+    }
+    if (stage == 1 && extRoute != EXT_INT) { // boot over or item closed: static splash on the external panel
+        extRoute = EXT_EXT;
+        tft->fillScreen(BGCOLOR);
+        initDisplay(true);
+    }
+    extRoute = stage == 0 ? (EXT_INT | EXT_EXT) : stage == 1 ? EXT_INT : EXT_EXT;
+}
+#endif
 #include <cstring>
 #include <globals.h>
 #include <vector>

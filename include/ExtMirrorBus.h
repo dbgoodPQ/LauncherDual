@@ -20,6 +20,11 @@
 //
 // Landscape only (the launcher's rotation 1 and 3). In a portrait rotation the
 // external panel simply stops updating.
+//
+// extRoute picks which panel(s) receive pixels (EXT_INT, EXT_EXT or both). It is
+// sampled at each RAMWR, so a window always lands on one consistent set of panels.
+// Commands and CASET/RASET always reach both, so each controller stays
+// initialised, rotated and in step with the driver's address-window cache.
 #ifndef EXT_MIRROR_BUS_H
 #define EXT_MIRROR_BUS_H
 
@@ -30,6 +35,7 @@
 #endif
 
 extern SPIClass sdcardSPI; // src/sd_functions.cpp
+#include "ExtRoute.h"
 
 #ifndef EXT_MIRROR_W
 #define EXT_MIRROR_W 320 // size of the mirrored picture on the external panel
@@ -85,13 +91,15 @@ class ExtMirrorBus : public Arduino_DataBus {
 
     // ---- commands: to both panels, except RAMWR which starts a scaled window ----
     void writeCommand(uint8_t c) override {
-        _a->writeCommand(c);
         if (c == 0x2C) { // RAMWR: pixel data follows
             _pix = true;
             _half = false;
+            _ra = extRoute & EXT_INT;
+            if (_ra) _a->writeCommand(c);
             startWindow();
         } else {
             _pix = false;
+            _a->writeCommand(c);
             _b->writeCommand(c);
         }
     }
@@ -131,17 +139,17 @@ class ExtMirrorBus : public Arduino_DataBus {
 
     // ---- data: pixel stream while RAMWR is active, command parameters otherwise ----
     void write(uint8_t d) override {
-        _a->write(d);
+        if (A()) _a->write(d);
         if (_pix) byteIn(d);
         else _b->write(d);
     }
     void write16(uint16_t d) override {
-        _a->write16(d);
+        if (A()) _a->write16(d);
         if (_pix) px(d);
         else _b->write16(d);
     }
     void writeRepeat(uint16_t p, uint32_t len) override {
-        _a->writeRepeat(p, len);
+        if (A()) _a->writeRepeat(p, len);
         if (_pix) {
             while (len--) px(p);
         } else {
@@ -149,7 +157,7 @@ class ExtMirrorBus : public Arduino_DataBus {
         }
     }
     void writeBytes(uint8_t *data, uint32_t len) override {
-        _a->writeBytes(data, len);
+        if (A()) _a->writeBytes(data, len);
         if (_pix) {
             for (uint32_t i = 0; i < len; i++) byteIn(data[i]);
         } else {
@@ -157,7 +165,7 @@ class ExtMirrorBus : public Arduino_DataBus {
         }
     }
     void writePixels(uint16_t *data, uint32_t len) override {
-        _a->writePixels(data, len);
+        if (A()) _a->writePixels(data, len);
         if (_pix) {
             for (uint32_t i = 0; i < len; i++) px(data[i]);
         } else {
@@ -166,7 +174,7 @@ class ExtMirrorBus : public Arduino_DataBus {
     }
 #if !defined(LITTLE_FOOT_PRINT)
     void writePattern(uint8_t *data, uint8_t len, uint32_t repeat) override {
-        _a->writePattern(data, len, repeat);
+        if (A()) _a->writePattern(data, len, repeat);
         if (_pix) {
             while (repeat--)
                 for (uint8_t i = 0; i < len; i++) byteIn(data[i]);
@@ -178,6 +186,7 @@ class ExtMirrorBus : public Arduino_DataBus {
 
   private:
     static int ceilDiv(int a, int b) { return (a + b - 1) / b; }
+    bool A() const { return !_pix || _ra; } // built-in panel takes this byte
 
     // Source picture in the built-in panel's memory: 240 columns from x 40, 135 rows from _yo.
     static constexpr int SRC_X0 = 40, SRC_W = 240, SRC_H = 135;
@@ -186,7 +195,7 @@ class ExtMirrorBus : public Arduino_DataBus {
     // RAMWR arrived: map the remembered source window to the external panel and open it.
     void startWindow() {
         _on = false;
-        if (!_landscape) return;
+        if (!_landscape || !(extRoute & EXT_EXT)) return;
         int xr0 = _x0 - SRC_X0, xr1 = _x1 - SRC_X0, yr0 = _y0 - _yo, yr1 = _y1 - _yo;
         if (xr0 < 0 || xr1 >= SRC_W || yr0 < 0 || yr1 >= SRC_H || xr1 < xr0 || yr1 < yr0) return;
         if (!_cleared) {
@@ -247,7 +256,7 @@ class ExtMirrorBus : public Arduino_DataBus {
     uint16_t _x0 = 0, _x1 = 0, _y0 = 0, _y1 = 0, _cx = 0, _cy = 0;
     int _dx0 = 0, _dx1 = 0, _yo = 53;
     uint8_t _hi = 0;
-    bool _pix = false, _half = false, _on = false, _landscape = false, _cleared = false;
+    bool _pix = false, _ra = true, _half = false, _on = false, _landscape = false, _cleared = false;
 };
 
 #endif // EXT_MIRROR_BUS_H

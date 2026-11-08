@@ -1,7 +1,7 @@
-# Launcher — Cardputer ADV with a mirrored external screen
+# Launcher — Cardputer ADV with an external screen
 
 A build of [bmorcelli/Launcher](https://github.com/bmorcelli/Launcher) for the M5Stack Cardputer ADV that
-mirrors the built-in screen onto a second SPI panel. Target panel: Waveshare 2inch LCD module
+drives a second SPI panel. Target panel: Waveshare 2inch LCD module
 (ST7789V, 240x320).
 
 Env: `m5stack-cardputer-dual`. Everything else is stock Launcher.
@@ -9,12 +9,31 @@ Env: `m5stack-cardputer-dual`. Everything else is stock Launcher.
 > **Status: tested on the M5Stack Cardputer ADV.** Builds come from the **Build Cardputer dual**
 > GitHub Action in this repo.
 
+## Screen modes
+
+Settings → `Dual screen` toggles between the two modes. The change applies immediately and is saved
+in NVS and `config.conf` (key `dualScreen`).
+
+| Mode | Built-in screen | External screen |
+| --- | --- | --- |
+| Dual (`[x]`, default) | main menu, and the boot screen | the open menu item (scaled), boot screen, otherwise the static splash |
+| Single (`[ ]`) | everything | no picture, backlight off |
+
+In Dual mode a menu item runs on the external screen until it returns (Esc as usual); popups and
+keyboard prompts it raises go there too. The menu itself does not take input meanwhile.
+
 ## How it works
 
 The panel driver talks to one data bus. `include/ExtMirrorBus.h` replaces it with a bus that sends everything
 to the built-in panel unchanged and re-sends the picture to the external panel, scaled up to fill it.
 `lib/DisplayDrivers/src/backends/ardgfx.cpp` wraps the bus when `EXT_MIRROR` is defined (4 lines; the library
 is vendored in this repo for that reason).
+
+A one-byte route (`extRoute`, `include/ExtRoute.h`) picks which panel(s) receive pixels: built-in,
+external or both. It is read at each pixel window, so no extra drawing code or layout is needed for
+the external screen: whatever the launcher draws goes to the panel(s) currently routed. Commands and
+window coordinates always reach both panels, so each stays initialised and rotated. `extScreen()` in
+`src/display.cpp` sets the route around each main-menu action.
 
 Scaling is nearest-neighbour, done row by row as the launcher draws, with no frame buffer (about 1 KB of RAM).
 By default the 240x135 picture is stretched to the full 320x240 panel. That is a wider stretch vertically

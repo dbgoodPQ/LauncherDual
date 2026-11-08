@@ -158,6 +158,9 @@ int currentIndex;
 int rotation = ROTATION + ROT_OFFSET;
 bool sdcardMounted;
 bool onlyBins;
+#ifdef EXT_MIRROR
+bool dualScreen = true;
+#endif
 bool bootToApp = true;
 uint8_t bootTimer = 4;
 bool DDLB = false;
@@ -271,6 +274,9 @@ void setup() {
     // Get Configuration from NVS partition
     getFromNVS();
     RAM_LOG("after-getFromNVS");
+#ifdef EXT_MIRROR
+    extScreen(0);
+#endif
 
     // declare variables
     size_t currentIndex = 0;
@@ -542,6 +548,12 @@ void loop() {
 
     opt = menuItems.size(); // number of options in the menu
     update_sd = sdcardMounted;
+#ifdef EXT_MIRROR
+#define RUN_ITEM(it) (extScreen(2), (it).action(), extScreen(1))
+    extScreen(1);
+#else
+#define RUN_ITEM(it) (it).action()
+#endif
     while (1) {
         if (redraw) {
             if (update_sd != sdcardMounted) {
@@ -591,7 +603,7 @@ void loop() {
                 if (item.contain(touchPoint.x, touchPoint.y)) {
                     resetGlobals();
                     if (i == index) {
-                        item.action();
+                        RUN_ITEM(item);
                         tft->drawPixel(0, 0, 0);
                         tft->fillScreen(BGCOLOR);
                         first_loop = true;
@@ -666,7 +678,7 @@ void loop() {
 
         // Select and run function
         if (check(SelPress)) {
-            menuItems.at(index).action(); // Call the action associated with the selected menu item
+            RUN_ITEM(menuItems.at(index)); // Call the action associated with the selected menu item
             tft->drawPixel(0, 0, 0);
             tft->fillScreen(BGCOLOR);
             pass_by = 0;
