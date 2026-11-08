@@ -16,7 +16,7 @@ second screen, everything else is stock Launcher — for features, usage and oth
     Partition Manager, Settings, apps) is shown on the external screen, drawn natively at 320x240
     (sharp, nothing scaled). When it closes (Esc as usual),
     control goes back to the menu and the external screen shows the static Launcher splash.
-    The boot screen is shown on both.
+    The boot screen is shown on the built-in screen.
   - **Single**: built-in screen only; the external panel gets no picture and its backlight is off.
 - No frame buffer: the external panel just gets its own display driver.
 - The external backlight follows the brightness setting and turns off with the device.
