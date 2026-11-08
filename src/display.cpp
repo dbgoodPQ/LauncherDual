@@ -10,7 +10,24 @@
 #include "sd_functions.h"
 #include "settings.h"
 #include "utils.h"
-#include <ExtDisplay.h>
+#ifdef EXT_MIRROR
+static void extUse(bool on) {
+    tft->useExt(on);
+    tftWidth = tft->width(); // the external panel lays out natively at 320x240
+    tftHeight = tft->height();
+}
+void extScreen(bool item) {
+    static bool splash = true; // the external panel needs the splash (boot, or an item just closed)
+    if (dualScreen && !item && splash) {
+        extUse(true);
+        tft->fillScreen(BGCOLOR);
+        initDisplay(true);
+        splash = false;
+    }
+    extUse(dualScreen && item);
+    if (dualScreen && item) splash = true;
+}
+#endif
 #include <cstring>
 #include <globals.h>
 #include <vector>
@@ -576,9 +593,6 @@ void displayMsg(String txt, bool waitKeyPress) { displayError(txt, waitKeyPress)
 ***************************************************************************************/
 void progressHandler(size_t progress, size_t total) {
     vTaskDelay(pdMS_TO_TICKS(2));
-#if defined(EXT_MIRROR)
-    extLastProgress = launcherMillis(); // a G0 screen switch waits until writing stops
-#endif
 #if defined(E_PAPER_DISPLAY)
     static unsigned long lastUpdate = 0;
 #endif

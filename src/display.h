@@ -59,6 +59,10 @@ inline int loopOptions(
 void loopVersions(const String &fid);
 void loopFirmware(bool isUpdate = false);
 void initDisplay(bool doAll = false); // Início da função e mostra bootscreen
+#ifdef EXT_MIRROR
+// Dual screen: item open -> draw on the external panel; closed -> built-in, splash on the external
+void extScreen(bool item);
+#endif
 void initDisplayLoop();
 
 // Funções para economizar linhas nas outras funções

@@ -1,41 +1,35 @@
 # LauncherDual
 
 A fork of [bmorcelli/Launcher](https://github.com/bmorcelli/Launcher) for the **M5Stack Cardputer ADV**
-(env `m5stack-cardputer-dual`) that adds the option to use an external
-**Waveshare 2inch LCD module (ST7789V, 240x320)** as the main screen.
+that adds a second screen: an external **Waveshare 2inch LCD module (ST7789V, 240x320)**.
 
-This is **not a dual-screen port**: the launcher uses one screen at a time, and you switch between the
-built-in screen and the external one. Apart from that, everything is stock Launcher. For features, usage
-and other supported devices, see the [upstream project](https://github.com/bmorcelli/Launcher).
+The menu stays on the Cardputer's built-in screen, and whatever you open from it (SD browser, OTA, WebUI,
+Partition Manager, Settings, apps) is shown on the external screen at its full 320x240 resolution.
+Everything else is stock Launcher; for features, usage and other devices, see the
+[upstream project](https://github.com/bmorcelli/Launcher).
 
-> **Status:** internal mode (with mirror) tested on the M5Stack Cardputer ADV. External mode builds, but has
-> not been tested on hardware yet. Builds come from the **Build Cardputer dual** GitHub Action.
+Env: `m5stack-cardputer-dual`. Builds come from the **Build Cardputer dual** GitHub Action.
 
-## Screens
+## Screen modes
 
-| Mode | Main screen | External panel |
+Choose in **Settings → `Dual screen`**. The change applies immediately, with no reboot, and is saved
+with the other settings.
+
+| Mode | Built-in screen | External screen |
 | --- | --- | --- |
-| **Internal** (default) | Built-in 240x135 screen | Shows a scaled copy of the built-in screen (mirror). Usable, but text is soft. |
-| **External** | External panel, drawn natively at 320x240 (sharp text and icons) | Is the screen. The built-in one stays dark. |
+| **Dual** `[x]` (default) | boot screen and main menu | the menu item you open; the Launcher splash when nothing is open |
+| **Single** `[ ]` | everything | off (no picture, backlight off) |
 
-**Switching between internal and external:**
+How Dual mode works in use:
 
-- hold **G0 for 3 s**, wait for the stripe "Release: external screen" (or internal), then release: the device
-  reboots on the other screen, or
-- use **Config > `[Internal] Screen` / `[External] Screen`**.
+- Select an item on the main menu: it opens on the external screen and takes the keyboard until you
+  leave it. Its popups and text prompts appear there too.
+- Press **Esc** inside the item as usual to go back. When it closes, the keyboard returns to the menu
+  and the external screen shows the splash again.
+- On the main menu, Esc does nothing: the built-in screen always shows the menu.
 
-The choice is remembered across reboots and power-off. If you switch to external with no panel plugged in,
-hold G0 for 3 s again and release to come back. A short G0 press is still Select (now sent on release).
-Details in [README_DUAL.md](README_DUAL.md#two-screen-modes).
-
-Other notes:
-
-- The external backlight follows the brightness setting and turns off with the device.
-- The external panel shares SCK/MOSI with the SD card; only CS, DC, RST and BL are its own.
-- The mirror in internal mode is nearest-neighbour, row by row, with no frame buffer (about 1 KB of RAM).
-
-Implementation: `include/ExtDisplay.h` and `boards/m5stack-cardputer/interface.cpp` (screen choice),
-`include/ExtMirrorBus.h` (mirror), both hooked in `lib/DisplayDrivers/src/backends/ardgfx.cpp`.
+The external screen is drawn natively, so text and icons are as sharp as on the built-in screen and
+lists use the bigger panel. It follows the brightness setting and the orientation you set in Settings.
 
 ## Wiring (Cardputer ADV → Waveshare 2inch)
 
@@ -50,8 +44,7 @@ Implementation: `include/ExtDisplay.h` and `boards/m5stack-cardputer/interface.c
 | VCC | 3V3 | set the module's voltage selector to 3.3V |
 | GND | GND | |
 
-This is the wiring used for testing. Pins are set as `EXT_TFT_*` in
-`boards/m5stack-cardputer/platformio.ini`.
+Pins are set as `EXT_TFT_*` in `boards/m5stack-cardputer/platformio.ini`.
 
 ## Build
 
@@ -61,7 +54,8 @@ cd LauncherDual
 pio run -e m5stack-cardputer-dual
 ```
 
-Output: `Launcher-m5stack-cardputer-dual.bin` in the project root.
+Output: `Launcher-m5stack-cardputer-dual.bin` in the project root. Or run the **Build Cardputer dual**
+Action (Actions tab) and download the artifact.
 
 ## Flash
 
@@ -71,18 +65,19 @@ Enter download mode (hold G0, press RST), then:
 esptool.py --chip esp32s3 write_flash 0x0 Launcher-m5stack-cardputer-dual.bin
 ```
 
+## Upgrading from the external-only build
+
+The earlier "external screen" mode (switched by holding G0 for 3 s or `[Internal]/[External] Screen` in
+Config) is replaced by the Dual/Single modes above. G0 is a normal Select button again. No settings need
+to be reset.
+
 ## Options
 
 | Flag | Effect |
 | --- | --- |
-| `-DEXT_MIRROR_H=180` | Keep the built-in screen's proportions (30 px bars top and bottom) instead of stretching to 320x240 |
-| `-DEXT_MIRROR_W=240 -DEXT_MIRROR_H=135` | Unscaled, centred mirror |
-| `-DEXT_MADCTL_XOR=0x40` / `0x80` | Flip the external screen left/right / up/down |
-| `-DEXT_SPI_SPEED=20000000` | Lower SPI speed if the picture is garbled |
+| `-DEXT_SPI_SPEED=20000000` | Lower the external screen's SPI speed if its picture is garbled (default 40 MHz) |
 
-The `EXT_MIRROR_*` and `EXT_MADCTL_XOR` flags only affect the mirror (internal mode), which works in
-landscape rotations only; `EXT_SPI_SPEED` applies to both modes. More details and troubleshooting are in
-[README_DUAL.md](README_DUAL.md).
+How it works and troubleshooting: [README_DUAL.md](README_DUAL.md).
 
 ## Credits
 

@@ -205,6 +205,9 @@ extern JsonDocument settings;
 extern String fileToCopy;
 
 extern bool onlyBins;
+#ifdef EXT_MIRROR
+extern bool dualScreen; // m5stack-cardputer-dual: false = built-in screen only
+#endif
 
 extern bool noDotFiles;
 

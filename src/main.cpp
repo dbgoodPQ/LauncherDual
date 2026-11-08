@@ -158,6 +158,9 @@ int currentIndex;
 int rotation = ROTATION + ROT_OFFSET;
 bool sdcardMounted;
 bool onlyBins;
+#ifdef EXT_MIRROR
+bool dualScreen = true;
+#endif
 bool bootToApp = true;
 uint8_t bootTimer = 4;
 bool DDLB = false;
@@ -308,6 +311,9 @@ void setup() {
     }
     tft->fillScreen(BGCOLOR);
     initDisplay(true);
+#ifdef EXT_MIRROR
+    extScreen(false); // splash on the external panel
+#endif
     RAM_LOG("after-first-display");
 
     // Init post setup GPIO before SD Card initializes
@@ -542,6 +548,11 @@ void loop() {
 
     opt = menuItems.size(); // number of options in the menu
     update_sd = sdcardMounted;
+#ifdef EXT_MIRROR
+#define RUN_ITEM(it) (extScreen(true), (it).action(), extScreen(false))
+#else
+#define RUN_ITEM(it) (it).action()
+#endif
     while (1) {
         if (redraw) {
             if (update_sd != sdcardMounted) {
@@ -591,7 +602,7 @@ void loop() {
                 if (item.contain(touchPoint.x, touchPoint.y)) {
                     resetGlobals();
                     if (i == index) {
-                        item.action();
+                        RUN_ITEM(item);
                         tft->drawPixel(0, 0, 0);
                         tft->fillScreen(BGCOLOR);
                         first_loop = true;
@@ -666,7 +677,7 @@ void loop() {
 
         // Select and run function
         if (check(SelPress)) {
-            menuItems.at(index).action(); // Call the action associated with the selected menu item
+            RUN_ITEM(menuItems.at(index)); // Call the action associated with the selected menu item
             tft->drawPixel(0, 0, 0);
             tft->fillScreen(BGCOLOR);
             pass_by = 0;

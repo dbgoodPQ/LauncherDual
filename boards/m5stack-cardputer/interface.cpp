@@ -4,12 +4,6 @@
 #include <Keyboard.h>
 #include <Wire.h>
 #include <interface.h>
-#if defined(EXT_MIRROR)
-#include "display.h"
-#include "nvs_helpers.h"
-#include <ExtDisplay.h>
-#include <driver/gpio.h>
-#endif
 
 #define TCA8418_INT_PIN 11
 #define TCA8418_I2C_ADDR 0x34
@@ -98,9 +92,6 @@ void _setup_gpio() {
     launcherGpioWrite(6, HIGH);
     launcherGpioWrite(13, HIGH);
     launcherGpioWrite(15, HIGH);
-#if defined(EXT_MIRROR)
-    extDisplaySetup(); // must run before tft->begin(), which main.cpp calls next
-#endif
 }
 volatile bool kb_interrupt = false;
 void IRAM_ATTR gpio_isr_handler(void *arg) { kb_interrupt = true; }
@@ -167,36 +158,6 @@ void InputHandler(void) {
 
     if (!UseTCA8418 && launcherMillis() - tm < 200 && !LongPress) return;
 
-#if defined(EXT_MIRROR)
-    // GPIO0 (shoulder button). A short press is Select, sent on release so that a hold
-    // can mean something else: 3 s or more switches screen (see ExtDisplay.h). The switch
-    // happens on release too, because a reset with G0 still low lands in download mode.
-    {
-        static uint32_t g0Down = 0;
-        static bool g0Woke = false;
-        static bool g0Switch = false;
-        const uint32_t t = launcherMillis();
-        if (launcherGpioRead(0) == LOW) {
-            if (!g0Down) {
-                g0Down = t ? t : 1;
-                g0Woke = wakeUpScreen(); // a press that wakes the screen does nothing else
-                g0Switch = false;
-                AnyKeyPress = true;
-            } else if (!g0Woke && !g0Switch && t - g0Down >= 3000 && t - extLastProgress > 3000) {
-                g0Switch = true;
-                displayRedStripe(extPrimary ? "Release: internal screen" : "Release: external screen");
-            }
-        } else if (g0Down) {
-            g0Down = 0;
-            tm = t;
-            if (g0Switch) extDisplayToggle();
-            else if (!g0Woke) {
-                SelPress = true;
-                AnyKeyPress = true;
-            }
-        }
-    }
-#else
     if (launcherGpioRead(0) == LOW) { // GPIO0 button, shoulder button
         tm = launcherMillis();
         AnyKeyPress = true;
@@ -205,7 +166,6 @@ void InputHandler(void) {
         SelPress = true;
         AnyKeyPress = true;
     }
-#endif
     if (UseTCA8418) {
         bool keyEventHandled = false;
         bool nextPulse = false;
@@ -444,50 +404,3 @@ void reboot() {
     vTaskDelay(pdMS_TO_TICKS(10));
     ESP.restart();
 }
-
-#if defined(EXT_MIRROR)
-bool extPrimary = false;
-volatile uint32_t extLastProgress = 0;
-
-void extDisplaySetup() {
-    {
-        lnvs::Handle nvsHandle("launcher", false);
-        if (nvsHandle) lnvs::getBool(nvsHandle.raw(), "extScreen", extPrimary);
-    }
-    if (!extPrimary) return; // internal: ExtMirrorBus takes care of the external panel
-
-    // The built-in panel is never initialised; keep its backlight off.
-    launcherGpioOutput(TFT_BL);
-    launcherGpioWrite(TFT_BL, LOW);
-#ifdef EXT_TFT_BL
-    // powerOff() holds this pin low through deep sleep; let go of it after the wake-up reset.
-    gpio_hold_dis((gpio_num_t)EXT_TFT_BL);
-    gpio_deep_sleep_hold_dis();
-    displayConfig.bl = EXT_TFT_BL;
-#endif
-    // Same controller (ST7789, IPS) on its own pins, at its full size with no offsets.
-    // main.cpp derives tftWidth/tftHeight from this after begin(), so the whole UI lays
-    // itself out at 320x240.
-    displayConfig.width = 240;
-    displayConfig.height = 320;
-    displayConfig.colOfs1 = displayConfig.rowOfs1 = 0;
-    displayConfig.colOfs2 = displayConfig.rowOfs2 = 0;
-    displayConfig.cs = EXT_TFT_CS;
-    displayConfig.dc = EXT_TFT_DC;
-    displayConfig.rst = EXT_TFT_RST;
-    // sclk/mosi/miso stay on the built-in panel's pins on purpose: setupSdCard() treats
-    // "SD MOSI == displayConfig.mosi" as an SD card on the display's SPI object and would
-    // mount it on SPI instead of sdcardSPI, which hangs. ardgfx.cpp uses the SD pins itself.
-}
-
-void extDisplayToggle() {
-    {
-        lnvs::Handle nvsHandle("launcher", true);
-        if (nvsHandle) {
-            lnvs::setBool(nvsHandle.raw(), "extScreen", !extPrimary);
-            nvsHandle.commit();
-        }
-    }
-    reboot();
-}
-#endif

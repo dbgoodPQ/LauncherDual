@@ -13,7 +13,6 @@
 #include "sd_functions.h"
 #include "utils.h"
 #include "wifi_crypto.h"
-#include <ExtDisplay.h>
 #include <FS.h>
 #include <SD.h>
 #include <cstdio>
@@ -199,6 +198,10 @@ int applySettingsFromRoot(JsonObject setting) {
         count++;
         log_i("applySettingsFromRoot: missing askSpiffs");
     }
+#ifdef EXT_MIRROR
+    if (setting["dualScreen"].is<bool>()) dualScreen = setting["dualScreen"].as<bool>();
+    else count++;
+#endif
 
     if (setting["bright"].is<int>()) bright = setting["bright"].as<int>();
     else {
@@ -317,6 +320,9 @@ void populateSettingsFromGlobals(JsonObject setting) {
     setting["noDotFiles"] = noDotFiles;
     setting["autoBackup"] = autoBackup;
     setting["askSpiffs"] = askSpiffs;
+#ifdef EXT_MIRROR
+    setting["dualScreen"] = dualScreen;
+#endif
     setting["bright"] = bright;
     setting["dimmerSet"] = dimmerSet;
     String rot_dev_name = get_efuse_mac_as_string() + "-" + device_name;
@@ -610,6 +616,9 @@ void settings_menu() {
             {"Orientation",
                                    [=]() {
                  gsetRotation(true);
+#ifdef EXT_MIRROR
+                 extScreen(true); // layout size of the panel Settings is on
+#endif
                  saveConfigs();
              }                                                                          },
 #endif
@@ -622,6 +631,15 @@ void settings_menu() {
                  setdimmerSet();
                  saveConfigs();
              }},
+#ifdef EXT_MIRROR
+            {dualScreen ? "[x] Dual screen" : "[ ] Dual screen", [=]() {
+                 dualScreen = !dualScreen;
+                 extScreen(true); // Settings move to the screen that now shows open items
+                 _setBrightness(bright);
+                 tft->fillScreen(BGCOLOR);
+                 saveConfigs();
+             }},
+#endif
         };
         if (sdcardMounted) {
             options.push_back({onlyBins ? "[ ] See All Files" : "[x] See All Files", [=]() {
@@ -686,10 +704,6 @@ void settings_menu() {
 #if defined(HAS_KEYBOARD)
         options.push_back({"Manage shortcuts", [=]() { manageKeyBindings(); }});
 #endif
-#if defined(EXT_MIRROR)
-        // Saves the other screen and reboots; holding G0 for 3 s does the same.
-        options.push_back({extPrimary ? "[External] Screen" : "[Internal] Screen", extDisplayToggle});
-#endif
 
         if (dev_mode) options.push_back({"Boot Animation", [=]() { initDisplayLoop(); }});
         if (dev_mode)
@@ -732,13 +746,9 @@ void _setBrightness(uint8_t brightval) {
         float linear = (float)brightval / 100.0;
         value = PWM_MIN + round(pow(linear, 2.2) * (PWM_MAX - PWM_MIN));
     }
-#if defined(EXT_MIRROR)
-    analogWrite(TFT_BL, extPrimary ? 0 : value); // built-in screen stays dark in external mode
-#else
     analogWrite(TFT_BL, value);
-#endif
 #ifdef EXT_TFT_BL
-    analogWrite(EXT_TFT_BL, value); // second screen's backlight follows the built-in one
+    analogWrite(EXT_TFT_BL, dualScreen ? value : 0); // second screen's backlight follows the built-in one
 #endif
 #endif
 }
@@ -1103,6 +1113,9 @@ bool saveIntoNVS() {
     ok &= lnvs::setBool(h, "noDotFiles", noDotFiles);
     ok &= lnvs::setBool(h, "autoBackup", autoBackup);
     ok &= lnvs::setBool(h, "askSpiffs", askSpiffs);
+#ifdef EXT_MIRROR
+    ok &= lnvs::setBool(h, "dualScreen", dualScreen);
+#endif
     ok &= lnvs::setInt(h, "rotation", rotation);
     ok &= nvs_set_u16(h, "FGCOLOR", FGCOLOR) == ESP_OK;
     ok &= nvs_set_u16(h, "BGCOLOR", BGCOLOR) == ESP_OK;
@@ -1237,6 +1250,9 @@ bool getFromNVS() {
     lnvs::getBool(h, "noDotFiles", noDotFiles);
     lnvs::getBool(h, "autoBackup", autoBackup);
     lnvs::getBool(h, "askSpiffs", askSpiffs);
+#ifdef EXT_MIRROR
+    lnvs::getBool(h, "dualScreen", dualScreen);
+#endif
     lnvs::getInt(h, "rotation", rotation);
     nvs_get_u16(h, "FGCOLOR", &FGCOLOR);
     nvs_get_u16(h, "BGCOLOR", &BGCOLOR);
