@@ -18,11 +18,14 @@
 // object (sdcardSPI), so Arduino's transaction lock keeps the two apart. Only
 // its CS, DC and RST are its own.
 //
+// Used in internal mode only; see ExtDisplay.h for the external-only mode.
+//
 // Landscape only (the launcher's rotation 1 and 3). In a portrait rotation the
 // external panel simply stops updating.
 #ifndef EXT_MIRROR_BUS_H
 #define EXT_MIRROR_BUS_H
 
+#include "ExtDisplay.h"
 #include <Arduino_GFX_Library.h>
 #include <SPI.h>
 #ifdef EXT_TFT_BL
