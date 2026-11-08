@@ -7,7 +7,7 @@
 //
 // Keys: characters insert (; . , / included), Fn + ; . , / move, Ctrl + ; .
 // page up/down, Ctrl + , / line start/end, Fn+S save, Fn+Q or ` quit,
-// Ctrl+H help.
+// Ctrl+= zoom (text size 1 or 2), Ctrl+H help.
 #include "text_editor.h"
 #if defined(ARDUINO_M5STACK_CARDPUTER)
 #include "display.h"
@@ -21,13 +21,17 @@
 #include <globals.h>
 
 #define ED_MAX 32768   // largest file the editor accepts, in bytes
-#define ED_Y (LH + 2)  // text starts under the status line
+#define ED_Y (CH + 2)  // text starts under the status line
+#define CW (LW * sz)     // character cell, in pixels
+#define CH (LH * sz)
 
 namespace {
 char *b;                  // the text, not NUL-terminated
 size_t len, cap, cur, top; // cursor and first visible line (offsets)
 size_t hs;                // first visible column
 int rows, cols;
+uint8_t sz;                           // text size: 1 or 2
+uint8_t zoomExt = 2, zoomInt = 1;     // last size used on each screen, kept until reboot
 bool crlf, dirty;
 String name;
 
@@ -120,11 +124,11 @@ void drawRow(int r, size_t p, bool valid) {
         s += (c == '\t') ? ' ' : (c < 32 || c > 126) ? '?' : c;
     }
     while ((int)s.length() < cols) s += ' ';
-    const int y = ED_Y + r * LH;
+    const int y = ED_Y + r * CH;
     tft->drawString(s, 0, y);
     if (valid && cur >= p && cur <= e) {
         const int x = cur - p - hs;
-        drawCharAt(x * LW, y, s[x], BGCOLOR, FGCOLOR);
+        drawCharAt(x * CW, y, s[x], BGCOLOR, FGCOLOR);
     }
 }
 void drawLine(size_t ls) { // the row showing the line that starts at ls, if visible
@@ -154,9 +158,13 @@ void status(const char *msg = nullptr) {
     tft->drawString(s + pos, 0, 0);
     tft->setTextColor(FGCOLOR, BGCOLOR);
 }
+void layout() {
+    cols = tftWidth / CW;
+    rows = (tftHeight - ED_Y) / CH;
+}
 void redraw() {
     tft->fillScreen(BGCOLOR);
-    tft->setTextSize(FP);
+    tft->setTextSize(sz);
     tft->setTextColor(FGCOLOR, BGCOLOR);
     drawAll();
     status();
@@ -202,10 +210,11 @@ void help() {
     static const char *const lines[] = {
         "Fn + ; . , /   move",   "Ctrl + ; .     page up/down", "Ctrl + , /     line start/end",
         "Tab            2 spaces", "Fn + S         save",         "Fn + Q or `    quit",
-        "Ctrl + H       this help", "any key        close",
+        "Ctrl + =       zoom",     "Ctrl + H       this help",    "any key        close",
     };
     const int n = sizeof(lines) / sizeof(lines[0]), w = 31 * LW + 8, h = n * LH + 8;
     const int x = (tftWidth - w) / 2, y = (tftHeight - h) / 2;
+    tft->setTextSize(1); // fits both screens; redraw() restores the editor's size
     tft->fillRoundRect(x, y, w, h, 4, BGCOLOR);
     tft->drawRoundRect(x, y, w, h, 4, FGCOLOR);
     for (int i = 0; i < n; i++) tft->drawString(lines[i], x + 4, y + 4 + i * LH);
@@ -250,8 +259,9 @@ void textEditor(const String &path) {
     cur = top = hs = 0;
     dirty = false;
     name = path.substring(path.lastIndexOf('/') + 1);
-    cols = tftWidth / LW;
-    rows = (tftHeight - ED_Y) / LH;
+    uint8_t &zoom = tftWidth >= 320 ? zoomExt : zoomInt;
+    sz = zoom;
+    layout();
     redraw();
 
     char lastArrow = 0; // repeats while an arrow is held (ADV keyboard sends repeat pulses only)
@@ -298,6 +308,10 @@ void textEditor(const String &path) {
                 else if (lc == '/' || lc == '?') cur = eol(cur);
                 else if (lc == 'h') {
                     help();
+                    full = true;
+                } else if (lc == '=' || lc == '+') { // '+' on the original Cardputer keyboard
+                    sz = zoom = 3 - sz;
+                    layout();
                     full = true;
                 }
             } else if (k.fn && lc != '\n' && lc != '\t') {

@@ -35,7 +35,9 @@ lists use the bigger panel. It follows the brightness setting and the orientatio
 
 In the SD browser, open the menu on a `.json`, `.conf`, `.txt`, `.ini`, `.cfg`, `.csv`, `.md` or `.log`
 file and choose **Edit file**. Files up to 32 KB can be edited. In Dual mode the editor opens on the
-external screen (about 53 columns × 28 lines); in Single mode on the built-in one (40 × 15).
+external screen, in Single mode on the built-in one. Text is shown at size 2 on the external screen
+(26 columns × 14 lines) and size 1 on the built-in one (40 × 15); Ctrl + `=` switches between the two
+sizes (53 × 28 at size 1 on the external screen), and the choice is kept for each screen until reboot.
 
 The top line shows the file name (`*` when modified) and the cursor's line:column. Long lines scroll
 sideways.
@@ -51,6 +53,7 @@ sideways.
 | Tab | insert 2 spaces |
 | Fn + S | save |
 | Fn + Q or `` ` `` | quit; if modified: Save / Don't save / Cancel |
+| Ctrl + `=` | zoom: text size 1 / 2 |
 | Ctrl + H | key help |
 
 Saving writes `<file>.tmp` first and then replaces the file, so a failed write leaves the original intact.
