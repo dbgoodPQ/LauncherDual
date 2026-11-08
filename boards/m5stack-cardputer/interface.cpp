@@ -17,6 +17,7 @@ bool UseTCA8418 = false; // Set to true to use TCA8418 (Cardputer ADV)
 
 // Keyboard state variables
 bool fn_key_pressed = false;
+bool ctrl_key_pressed = false;
 bool shift_key_pressed = false;
 bool caps_lock = false;
 
@@ -269,6 +270,8 @@ void InputHandler(void) {
                     }
                 } else if (keyVal == KEY_TAB) {
                     if (pressed) {
+                        // '+' maps to the same code: hid_keys tells the real Tab key apart (text editor)
+                        if (_key_value_map[row][col].value_first == KEY_TAB) pendingKey.hid_keys.emplace_back(KEY_TAB);
                         pendingKey.word.emplace_back(KEY_TAB);
                         keyPulse = true;
                     }
@@ -283,6 +286,7 @@ void InputHandler(void) {
                         keyPulse = true;
                     }
                 } else if (keyVal == KEY_LEFT_CTRL) {
+                    ctrl_key_pressed = pressed;
                     if (pressed) {
                         pendingKey.modifier_keys.emplace_back(KEY_LEFT_CTRL);
                         keyPulse = true;
@@ -332,6 +336,9 @@ void InputHandler(void) {
         }
         if (keyPulse) {
             pendingKey.pressed = true;
+            // Held modifiers travel with the key, as the original Cardputer keyboard reports them
+            if (fn_key_pressed) pendingKey.fn = true;
+            if (ctrl_key_pressed) pendingKey.modifiers |= 1;
             KeyStroke = pendingKey;
         } else if (!nextPulse && !prevPulse) {
             KeyStroke.Clear();
