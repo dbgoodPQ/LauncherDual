@@ -20,18 +20,18 @@
 #include <algorithm>
 #include <globals.h>
 
-#define ED_MAX 32768   // largest file the editor accepts, in bytes
-#define ED_Y (CH + 2)  // text starts under the status line
-#define CW (LW * sz)     // character cell, in pixels
+#define ED_MAX 32768  // largest file the editor accepts, in bytes
+#define ED_Y (CH + 2) // text starts under the status line
+#define CW (LW * sz)  // character cell, in pixels
 #define CH (LH * sz)
 
 namespace {
-char *b;                  // the text, not NUL-terminated
+char *b;                   // the text, not NUL-terminated
 size_t len, cap, cur, top; // cursor and first visible line (offsets)
-size_t hs;                // first visible column
+size_t hs;                 // first visible column
 int rows, cols;
-uint8_t sz;                           // text size: 1 or 2
-uint8_t zoomExt = 2, zoomInt = 1;     // last size used on each screen, kept until reboot
+uint8_t sz;                       // text size: 1 or 2
+uint8_t zoomExt = 2, zoomInt = 1; // last size used on each screen, kept until reboot
 bool crlf, dirty;
 String name;
 
@@ -178,18 +178,23 @@ int choose(std::vector<Option> o) { // loopOptions() returning the index picked,
     return c;
 }
 
-bool jsonOk() { // syntax check only: an empty filter keeps nothing, so no extra memory
+bool jsonOk() { // syntax check only: an empty filter keeps nothing, so no extra memory.
+    // String input reuses the parser onlineLauncher.cpp already links; a char* one adds ~1.9 KB
+    String s;
+    if (!s.reserve(len)) return false;
+    s.concat(b, len);
     JsonDocument doc, filter;
-    return !deserializeJson(
-        doc, (const char *)b, len, DeserializationOption::Filter(filter), DeserializationOption::NestingLimit(32)
-    );
+    return !deserializeJson(doc, s, DeserializationOption::Filter(filter));
 }
 
 bool save(const String &path) {
     String lower = path;
     lower.toLowerCase();
     if ((lower.endsWith(".json") || path == CONFIG_FILE) && !jsonOk() &&
-        choose({{"Invalid JSON: save anyway", nullptr}, {"Cancel", nullptr}}) != 0)
+        choose({
+            {"Invalid JSON: save anyway", nullptr},
+            {"Cancel",                    nullptr}
+    }) != 0)
         return false;
     const String tmp = path + ".tmp";
     File f = SDM.open(tmp, FILE_WRITE);
@@ -208,9 +213,15 @@ bool save(const String &path) {
 
 void help() {
     static const char *const lines[] = {
-        "Fn + ; . , /   move",   "Ctrl + ; .     page up/down", "Ctrl + , /     line start/end",
-        "Tab            2 spaces", "Fn + S         save",         "Fn + Q or `    quit",
-        "Ctrl + =       zoom",     "Ctrl + H       this help",    "any key        close",
+        "Fn + ; . , /   move",
+        "Ctrl + ; .     page up/down",
+        "Ctrl + , /     line start/end",
+        "Tab            2 spaces",
+        "Fn + S         save",
+        "Fn + Q or `    quit",
+        "Ctrl + =       zoom",
+        "Ctrl + H       this help",
+        "any key        close",
     };
     const int n = sizeof(lines) / sizeof(lines[0]), w = 31 * LW + 8, h = n * LH + 8;
     const int x = (tftWidth - w) / 2, y = (tftHeight - h) / 2;
@@ -327,11 +338,16 @@ void textEditor(const String &path) {
             else if (c == '\t') sawTab = true, msg = ins("  ", 2) ? nullptr : "File full";
             else if (c >= 32 && c < 127 && !ins(&c, 1)) msg = "File full";
         }
-        if (tab && !sawTab) msg = ins("  ", 2) ? nullptr : "File full";      // original Cardputer keyboard
+        if (tab && !sawTab) msg = ins("  ", 2) ? nullptr : "File full"; // original Cardputer keyboard
         if (k.enter && !sawEnter) full = true, msg = newline() ? nullptr : "File full";
 
         if (quit) {
-            int c = dirty ? choose({{"Save", nullptr}, {"Don't save", nullptr}, {"Cancel", nullptr}}) : 1;
+            int c = dirty ? choose({
+                                {"Save",       nullptr},
+                                {"Don't save", nullptr},
+                                {"Cancel",     nullptr}
+            })
+                          : 1;
             if (c == 1 || (c == 0 && save(path))) break;
             full = true;
         }
