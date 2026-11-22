@@ -1,5 +1,6 @@
 #include "wifi_crypto.h"
 #include "mbedtls/aes.h"
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -127,9 +128,15 @@ static bool decryptOnce(const String &cipher, String &plain) {
     mbedtls_aes_crypt_cbc(&ctx, MBEDTLS_AES_DECRYPT, binLen, iv, buf, buf);
     mbedtls_aes_free(&ctx);
 
-    // Validate and strip PKCS7 padding
+    // Validate and strip PKCS7 padding. Checking every pad byte (not just the
+    // last) and rejecting control characters in the payload keeps a wrong-key
+    // decrypt from being accepted as a password by chance (~6% with the last
+    // byte alone).
     uint8_t padByte = buf[binLen - 1];
-    if (padByte == 0 || padByte > 16 || padByte > binLen) {
+    bool ok = padByte != 0 && padByte <= 16 && padByte <= binLen;
+    for (size_t i = binLen - padByte; ok && i < binLen; i++) ok = buf[i] == padByte;
+    for (size_t i = 0; ok && i < binLen - padByte; i++) ok = buf[i] >= 0x20 && buf[i] != 0x7F;
+    if (!ok) {
         free(buf);
         return false;
     }
@@ -140,12 +147,14 @@ static bool decryptOnce(const String &cipher, String &plain) {
 
 // Shape test for "this is one of our ciphertexts", independent of whether the
 // key matches. Used to tell a real password apart from a foreign ciphertext
-// that failed to decrypt.
+// that failed to decrypt. An all-hex value is a raw 64-char WPA PSK (same
+// shape as a 48-byte ciphertext), never base64 of random bytes in practice.
 static bool looksLikeCipher(const String &value) {
     const size_t len = value.length();
     if (len < 24 || len % 4 != 0) return false;
 
     size_t pad = 0;
+    bool allHex = true;
     for (size_t i = 0; i < len; i++) {
         const char c = value[i];
         if (c == '=') {
@@ -154,8 +163,9 @@ static bool looksLikeCipher(const String &value) {
         } else if (b64Val(c) < 0) {
             return false;
         }
+        if (!isxdigit((unsigned char)c)) allHex = false;
     }
-    if (pad > 2) return false;
+    if (pad > 2 || allHex) return false;
     return ((len / 4) * 3 - pad) % 16 == 0;
 }
 
