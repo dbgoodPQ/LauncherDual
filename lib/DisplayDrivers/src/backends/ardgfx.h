@@ -333,6 +333,10 @@ public:
     // m5stack-cardputer-dual: draw on the external 240x320 panel (true) or the built-in one.
     void useExt(bool on);
 #endif
+#if defined(EXT_SCREENDRIVER)
+    // m5stack-cardputer-screendriver: the C6 screen's backlight, 0..255 (0 = off).
+    void setExtBacklight(uint8_t value);
+#endif
     friend class tft_sprite;
     friend class tft_logger;
 

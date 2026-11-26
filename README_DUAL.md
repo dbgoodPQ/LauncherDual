@@ -1,7 +1,9 @@
 # LauncherDual — technical notes
 
 Details behind [README.md](README.md): how the second screen is driven, the exact wiring, and what to try
-when something looks wrong. Env: `m5stack-cardputer-dual`.
+when something looks wrong. Envs: `m5stack-cardputer-dual` (Waveshare 2inch ST7789 on SPI) and
+`m5stack-cardputer-screendriver` (ScreenDriver ILI9341 behind a XIAO ESP32-C6, see
+[below](#screendriver-build)). Both have the same Dual/Single modes.
 
 ## Screen modes
 
@@ -68,21 +70,48 @@ The GPIOs match the three other Cardputer ADV external-display projects I found
 against M5Stack's schematic before powering up. The pin numbers are `EXT_TFT_*` in
 `boards/m5stack-cardputer/platformio.ini`.
 
+## ScreenDriver build
+
+`m5stack-cardputer-screendriver` drives the [ScreenDriver](https://github.com/dbgoodPQ/ScreenDriver)
+screen instead: a 2.8" ILI9341 (320x240) rendered by a XIAO ESP32-C6, which the Cardputer feeds with
+drawing commands over a 5 Mbaud UART. The library is the `lib_ext/ScreenDriver` submodule.
+
+- **Wiring:** G13 (TX) → C6 D7, G15 (RX) ← C6 D6, G4 (RTS) → C6 D5, G6 (CTS) ← C6 D9, GND, and power
+  as described in ScreenDriver's README. It uses UART1 and no SPI pins, so it does not share the SD bus.
+- **Driver:** `Arduino_RemoteGFX` in `lib/DisplayDrivers/src/backends/ardgfx.cpp` (under
+  `EXT_SCREENDRIVER`) is the external Arduino_GFX driver that `useExt()` swaps in. Shapes become C6
+  commands, and text is drawn by the C6 with the same 6x8 font. The C6 shows nothing until a frame ends,
+  so a task ends the open frame every 25 ms.
+- **Without the screen:** the launcher boots normally (startup waits up to 1.5 s for the C6), and the
+  library connects by itself when the C6 appears.
+- **Backlight:** follows the brightness setting in Dual mode, off in Single mode and when the device
+  turns off.
+- **Rotation:** the C6 drives the panel in landscape only. Rotations 1 and 3 work; changing between
+  them restarts the C6.
+- **XIAO reset while an item is open:** the external screen stays blank until the item redraws (usually
+  the next key press). There is no RAM for a copy of the screen.
+- **Partition table:** `support_files/custom_8Mb2.csv`, launcher partition 0x170000 instead of 0x150000
+  (RemoteDisplay does not fit otherwise). Installed apps get 6.44 MB instead of 6.56 MB. Moving a
+  Cardputer between this build and the Waveshare one needs a full esptool flash (partitions included),
+  not an OTA or SD update.
+
 ## Build and flash
 
 ```
 git clone --recursive https://github.com/dbgoodPQ/LauncherDual
 cd LauncherDual
-pio run -e m5stack-cardputer-dual
+pio run -e m5stack-cardputer-dual -e m5stack-cardputer-screendriver
 ```
 
-The merged image is `Launcher-m5stack-cardputer-dual.bin` in the project root; the **Build Cardputer
-dual** GitHub Action builds the same file (Actions tab, download the artifact).
+The merged images are `Launcher-m5stack-cardputer-dual.bin` and
+`Launcher-m5stack-cardputer-screendriver.bin` in the project root; the **Build Cardputer dual** GitHub
+Action builds the same files (Actions tab, download the artifacts).
 
-Download mode: hold G0 and press RST. Then:
+Download mode: hold G0 and press RST. Then (`erase_flash` first when switching between the two builds):
 
 ```
 esptool.py --chip esp32s3 write_flash 0x0 Launcher-m5stack-cardputer-dual.bin
+esptool.py --chip esp32s3 write_flash 0x0 Launcher-m5stack-cardputer-screendriver.bin
 ```
 
 (or flash the file at offset 0x0 from any web flasher that accepts a custom merged binary.)

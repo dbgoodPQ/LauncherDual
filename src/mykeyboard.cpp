@@ -1036,6 +1036,8 @@ void __attribute__((weak)) powerOff() {
     analogWrite(EXT_TFT_BL, 0);
     gpio_hold_en((gpio_num_t)EXT_TFT_BL);
     gpio_deep_sleep_hold_en();
+#elif defined(EXT_SCREENDRIVER)
+    tft->setExtBacklight(0); // dark even if the XIAO keeps its own (USB) power
 #endif
 #if defined(SOC_PM_SUPPORT_EXT0_WAKEUP)
     esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, LOW);

@@ -655,14 +655,14 @@ void settings_menu() {
                                    [=]() {
                  chargeMode();
                  returnToMenu = true;
-             }                                                                          },
+             }                                                                                      },
 #endif
 #if !defined(E_PAPER_DISPLAY)
             {"UI Color",
                                    [=]() {
                  setUiColor();
                  saveConfigs();
-             }                                                                          },
+             }                                                                                      },
 #endif
 #if !defined(LYLYGO_TDECK_PRO)
             {"Orientation",
@@ -672,17 +672,18 @@ void settings_menu() {
                  extScreen(true); // layout size of the panel Settings is on
 #endif
                  saveConfigs();
-             }                                                                          },
+             }                                                                                      },
 #endif
             {"[" + String(bright) + "] Brightness",
                                    [=]() {
                  setBrightnessMenu();
                  saveConfigs();
-             }                                                                          },
-            {"[" + String(dimmerSet) + "] Dim time", [=]() {
+             }                                                                                      },
+            {"[" + String(dimmerSet) + "] Dim time",
+                                   [=]() {
                  setdimmerSet();
                  saveConfigs();
-             }},
+             }                                                                                      },
 #ifdef EXT_MIRROR
             {dualScreen ? "[x] Dual screen" : "[ ] Dual screen", [=]() {
                  dualScreen = !dualScreen;
@@ -801,6 +802,8 @@ void _setBrightness(uint8_t brightval) {
     analogWrite(TFT_BL, value);
 #ifdef EXT_TFT_BL
     analogWrite(EXT_TFT_BL, dualScreen ? value : 0); // second screen's backlight follows the built-in one
+#elif defined(EXT_SCREENDRIVER)
+    tft->setExtBacklight(dualScreen ? value : 0);
 #endif
 #endif
 }
