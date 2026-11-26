@@ -6,7 +6,9 @@
 
 #if defined(USE_ARDUINO_GFX)
 #include <font/glcdfont.h>
-#if defined(EXT_MIRROR)
+#if defined(EXT_SCREENDRIVER)
+#include <RemoteDisplay.h>
+#elif defined(EXT_MIRROR)
 #include <SPI.h>
 #ifdef EXT_TFT_BL
 #include <driver/gpio.h>
@@ -23,6 +25,112 @@ static SemaphoreHandle_t tftMutex;
     xSemaphoreTakeRecursive(tftMutex, portMAX_DELAY);                                                        \
     fn;                                                                                                      \
     xSemaphoreGiveRecursive(tftMutex);
+
+#if defined(EXT_SCREENDRIVER)
+// m5stack-cardputer-screendriver: the external screen is a 320x240 ILI9341 behind a XIAO ESP32-C6
+// (github.com/dbgoodPQ/ScreenDriver, lib_ext/ScreenDriver). Each drawing call goes over the UART link
+// as a small command; text uses the C6's 6x8 font, the same glcdfont the launcher draws with.
+// The C6 shows nothing until a frame ends, so extFlushTask() ends the open frame every 25 ms.
+class Arduino_RemoteGFX : public Arduino_GFX {
+public:
+    RemoteDisplay rd;
+    explicit Arduino_RemoteGFX(uint8_t r) : Arduino_GFX(240, 320), _rot(landscape(r)) {}
+
+    bool begin(int32_t) override {
+        if (!rd.begin(_rot, 1500)) log_w("external screen: %s", rd.lastError()); // connects later by itself
+        rd.setFont(RD_FONT_GLCD);
+        rd.onRedraw([this] { rd.setBrightness(_bl); }); // the C6 rebooted: restore its backlight
+        Arduino_GFX::setRotation(_rot);
+        return true;
+    }
+    // The C6 only drives the panel in landscape (1 or 3); changing between them restarts it.
+    void setRotation(uint8_t r) override {
+        uint8_t l = landscape(r);
+        if (l != _rot) {
+            _rot = l;
+            _open = false;
+            rd.begin(l, 1500);
+            rd.setBrightness(_bl);
+        }
+        Arduino_GFX::setRotation(l);
+    }
+    void setBacklight(uint8_t v) {
+        _bl = v;
+        rd.setBrightness(v);
+    }
+    void writePixelPreclipped(int16_t x, int16_t y, uint16_t color) override {
+        frame();
+        rd.drawPixel(x, y, color);
+    }
+    void writeFillRectPreclipped(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color) override {
+        frame();
+        rd.fillRect(x, y, w, h, color);
+    }
+    void writeFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color) override {
+        writeFillRect(x, y, w, 1, color);
+    }
+    void writeFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color) override {
+        writeFillRect(x, y, 1, h, color);
+    }
+    void drawChar(int16_t x, int16_t y, unsigned char c, uint16_t color, uint16_t bg) override {
+        if (gfxFont) {
+            Arduino_GFX::drawChar(x, y, c, color, bg);
+            return;
+        }
+        frame();
+        if (textsize_x != _size) rd.setTextSize(_size = textsize_x); // each change resends the text style
+        if (color != _fg || bg != _bg) {
+            if (bg == color) rd.setTextColor(color); // Arduino_GFX: same colors = transparent background
+            else rd.setTextColor(color, bg);
+            _fg = color;
+            _bg = bg;
+        }
+        char s[2] = {(char)c, 0};
+        rd.drawString(s, x, y);
+    }
+    // tft_sprite::pushSprite: send each row's opaque runs as images instead of single pixels.
+    void draw16bitRGBBitmapWithTranColor(
+        int16_t x, int16_t y, uint16_t *bitmap, uint16_t transparent, int16_t w, int16_t h
+    ) override {
+        frame();
+        for (int16_t j = 0; j < h; ++j) {
+            uint16_t *row = bitmap + (int32_t)j * w;
+            for (int16_t i = 0; i < w;) {
+                if (row[i] == transparent) {
+                    ++i;
+                    continue;
+                }
+                int16_t s = i;
+                while (i < w && row[i] != transparent) ++i;
+                rd.pushImage(x + s, y + j, i - s, 1, row + s);
+            }
+        }
+    }
+    void endFrame() { // tftMutex held
+        if (_open) rd.endFrame();
+        else rd.poll(); // keeps the link checks and the reconnection running
+        _open = false;
+    }
+
+private:
+    uint8_t _rot, _bl = 0, _size = 0;
+    uint16_t _fg = 0, _bg = 1;
+    bool _open = false;
+    static uint8_t landscape(uint8_t r) { return (r & 3) >= 2 ? 3 : 1; }
+    void frame() {
+        if (!_open) rd.startFrame();
+        _open = true;
+    }
+};
+static Arduino_RemoteGFX *s_remote = nullptr;
+
+static void extFlushTask(void *) {
+    for (;;) {
+        vTaskDelay(pdMS_TO_TICKS(25));
+        RUN_ON_MUTEX(s_remote->endFrame());
+    }
+}
+#endif
 
 tft_display::tft_display(int16_t _W, int16_t _H) : _height(_H), _width(_W) {
     // Every RUN_ON_MUTEX() below takes this handle, so it has to exist before
@@ -152,7 +260,13 @@ void tft_display::begin(uint32_t speed) {
         _width = _gfx->width();
         _height = _gfx->height();
     }
-#if defined(EXT_MIRROR)
+#if defined(EXT_SCREENDRIVER)
+    // After _setup_gpio(): the link takes G13, G15, G4 and G6 back from it.
+    s_remote = new Arduino_RemoteGFX(displayConfig.rotation);
+    s_remote->begin(0);
+    _ext = s_remote;
+    xTaskCreate(extFlushTask, "extFlush", 3072, nullptr, 1, nullptr);
+#elif defined(EXT_MIRROR)
     // Second ST7789 (240x320) on the SD card's SPI, drawn natively when selected by useExt().
     // Bring that bus up exactly as sd_functions.cpp does, so the card's begin() leaves it alone.
     sdcardSPI.begin(SDCARD_SCK, SDCARD_MISO, SDCARD_MOSI, SDCARD_CS);
@@ -185,6 +299,11 @@ void tft_display::useExt(bool on) {
     _gfx->setTextSize(_textSize);
     _gfx->setTextColor(_textColor, _textBgColor);
     xSemaphoreGiveRecursive(tftMutex);
+}
+#endif
+#if defined(EXT_SCREENDRIVER)
+void tft_display::setExtBacklight(uint8_t value) {
+    if (s_remote) { RUN_ON_MUTEX(s_remote->setBacklight(value)); }
 }
 #endif
 
